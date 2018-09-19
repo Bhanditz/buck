@@ -45,6 +45,7 @@ import com.facebook.buck.zip.ZipStep;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.io.ByteArrayOutputStream;
@@ -53,6 +54,7 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,6 +66,7 @@ public class KotlincToJarStepFactory extends CompileToJarStepFactory implements 
   @AddToRuleKey private final Kotlinc kotlinc;
   @AddToRuleKey private final ImmutableList<String> extraKotlincArguments;
   @AddToRuleKey private final AnnotationProcessingTool annotationProcessingTool;
+  @AddToRuleKey private final ImmutableMap<String, String> kaptApoptions;
   @AddToRuleKey private final ExtraClasspathProvider extraClassPath;
   @AddToRuleKey private final Javac javac;
   @AddToRuleKey private final JavacOptions javacOptions;
@@ -99,6 +102,7 @@ public class KotlincToJarStepFactory extends CompileToJarStepFactory implements 
       ImmutableSortedSet<Path> kotlinHomeLibraries,
       ImmutableList<String> extraKotlincArguments,
       AnnotationProcessingTool annotationProcessingTool,
+      ImmutableMap<String, String> kaptApoptions,
       ExtraClasspathProvider extraClassPath,
       Javac javac,
       JavacOptions javacOptions) {
@@ -106,6 +110,7 @@ public class KotlincToJarStepFactory extends CompileToJarStepFactory implements 
     this.kotlinHomeLibraries = kotlinHomeLibraries;
     this.extraKotlincArguments = extraKotlincArguments;
     this.annotationProcessingTool = annotationProcessingTool;
+    this.kaptApoptions = kaptApoptions;
     this.extraClassPath = extraClassPath;
     this.javac = javac;
     this.javacOptions = Objects.requireNonNull(javacOptions);
@@ -182,6 +187,7 @@ public class KotlincToJarStepFactory extends CompileToJarStepFactory implements 
             sourceFilePaths,
             pathToSrcsList,
             allClasspaths,
+            kaptApoptions,
             extraKotlincArguments,
             kaptGeneratedOutput,
             stubsOutput,
@@ -292,6 +298,7 @@ public class KotlincToJarStepFactory extends CompileToJarStepFactory implements 
       ImmutableSortedSet<Path> sourceFilePaths,
       Path pathToSrcsList,
       Iterable<? extends Path> declaredClasspathEntries,
+      ImmutableMap<String, String> kaptApoptions,
       ImmutableList<String> extraArguments,
       Path kaptGenerated,
       Path stubsOutput,
@@ -327,9 +334,9 @@ public class KotlincToJarStepFactory extends CompileToJarStepFactory implements 
             .add(STUBS_ARG + filesystem.resolve(stubsOutput))
             .add(
                 AP_OPTIONS
-                    + encodeOptions(
-                        Collections.singletonMap(
-                            KAPT_GENERATED, filesystem.resolve(kaptGenerated).toString())))
+                    + encodeKaptApoptions(
+                        kaptApoptions,
+                        filesystem.resolve(kaptGenerated).toString()))
             .add(JAVAC_ARG + encodeOptions(Collections.emptyMap()))
             .add(LIGHT_ANALYSIS + "true") // TODO: Provide value as argument
             .add(CORRECT_ERROR_TYPES + "false") // TODO: Provide value as argument
@@ -397,6 +404,17 @@ public class KotlincToJarStepFactory extends CompileToJarStepFactory implements 
   @Override
   protected Optional<String> getBootClasspath(BuildContext context) {
     return javacOptions.withBootclasspathFromContext(extraClassPath).getBootclasspath();
+  }
+
+  private String encodeKaptApoptions(
+      Map<String, String> kaptApoptions,
+      String kaptGeneratedPath) {
+
+    Map<String, String> kaptApoptionsToEncode = new HashMap<>();
+    kaptApoptionsToEncode.put(KAPT_GENERATED, kaptGeneratedPath);
+    kaptApoptionsToEncode.putAll(kaptApoptions);
+
+    return encodeOptions(kaptApoptionsToEncode);
   }
 
   private void addCreateFolderStep(
