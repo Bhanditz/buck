@@ -198,7 +198,7 @@ public class KotlinLibraryDescription
 
     Optional<AnnotationProcessingTool> getAnnotationProcessingTool();
 
-    ImmutableMap<String, String> getKaptApoptions();
+    ImmutableMap<String, String> getKaptApOptions();
   }
 
   @BuckStyleImmutable
